@@ -19,9 +19,7 @@ var brace = require('brace');
 require('brace/mode/json');
 require('brace/theme/github');
 require('./slugify');
-window.TinyMCE = window.tinymce = require('tinymce');
 require('./multilingual');
-require('./voyager_tinymce');
 require('./voyager_ace_editor');
 window.helpers = require('./helpers.js');
 
