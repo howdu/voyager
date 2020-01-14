@@ -15,14 +15,8 @@ require('bootstrap');
 require('bootstrap-switch');
 require('select2');
 require('eonasdan-bootstrap-datetimepicker/src/js/bootstrap-datetimepicker');
-var brace = require('brace');
-require('brace/mode/json');
-require('brace/theme/github');
 require('./slugify');
-window.TinyMCE = window.tinymce = require('tinymce');
 require('./multilingual');
-require('./voyager_tinymce');
-require('./voyager_ace_editor');
 window.helpers = require('./helpers.js');
 
 Vue.component('admin-menu', require('./components/admin_menu.vue').default);
