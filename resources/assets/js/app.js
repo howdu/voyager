@@ -17,6 +17,7 @@ require('select2');
 require('eonasdan-bootstrap-datetimepicker/src/js/bootstrap-datetimepicker');
 require('./slugify');
 require('./multilingual');
+require('./voyager_ace_editor');
 window.helpers = require('./helpers.js');
 
 Vue.component('admin-menu', require('./components/admin_menu.vue').default);
