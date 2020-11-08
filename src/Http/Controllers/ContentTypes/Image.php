@@ -11,16 +11,37 @@ class Image extends BaseType
 {
     public function handle()
     {
-        if ($this->request->hasFile($this->row->field)) {
-            $file = $this->request->file($this->row->field);
+        if (!$this->request->hasFile($this->row->field)) {
+            return false;
+        }
 
-            $path = $this->slug.DIRECTORY_SEPARATOR.date('FY').DIRECTORY_SEPARATOR;
+        $file = $this->request->file($this->row->field);
 
-            $filename = $this->generateFileName($file, $path);
+        $path = $this->slug.DIRECTORY_SEPARATOR.date('FY').DIRECTORY_SEPARATOR;
 
-            $image = InterventionImage::make($file);
+        $filename = $this->generateFileName($file, $path);
 
-            $fullPath = $path.$filename.'.'.$file->getClientOriginalExtension();
+        $fileMimeType = $file->getMimeType();
+        $fileExtension = $file->getClientOriginalExtension();
+
+        $fullPath = $path . $filename . '.' . $fileExtension;
+
+        $resizableMimeTypes = [
+            'image/png',
+            'image/x-png',
+            'image/jpg',
+            'image/jpeg',
+            'image/pjpeg',
+            'image/gif',
+            'image/webp',
+            'image/x-webp'
+        ];
+
+        // Skip resize
+        if (!in_array($fileMimeType, $resizableMimeTypes)) {
+            Storage::disk(config('voyager.storage.disk'))->put($fullPath, file_get_contents($file), 'public');
+        } else {
+            $image = InterventionImage::make($file)->orientate();
 
             $resize_width = null;
             $resize_height = null;
@@ -49,17 +70,17 @@ class Image extends BaseType
                         $constraint->upsize();
                     }
                 }
-            )->encode($file->getClientOriginalExtension(), $resize_quality);
+            )->encode($fileExtension, $resize_quality);
 
             if ($this->is_animated_gif($file)) {
                 Storage::disk(config('voyager.storage.disk'))->put($fullPath, file_get_contents($file), 'public');
-                $fullPathStatic = $path.$filename.'-static.'.$file->getClientOriginalExtension();
-                Storage::disk(config('voyager.storage.disk'))->put($fullPathStatic, (string) $image, 'public');
+                $fullPathStatic = $path . $filename . '-static.' . $fileExtension;
+                Storage::disk(config('voyager.storage.disk'))->put($fullPathStatic, (string)$image, 'public');
             } else {
-                Storage::disk(config('voyager.storage.disk'))->put($fullPath, (string) $image, 'public');
+                Storage::disk(config('voyager.storage.disk'))->put($fullPath, (string)$image, 'public');
             }
 
-            if (isset($this->options->thumbnails)) {
+            if (isset($this->options->thumbnails) && in_array($fileMimeType, $resizableMimeTypes)) {
                 foreach ($this->options->thumbnails as $thumbnails) {
                     if (isset($thumbnails->name) && isset($thumbnails->scale)) {
                         $scale = intval($thumbnails->scale) / 100;
@@ -74,34 +95,37 @@ class Image extends BaseType
                             $thumb_resize_height = intval($thumb_resize_height * $scale);
                         }
 
-                        $image = InterventionImage::make($file)->resize(
-                            $thumb_resize_width,
-                            $thumb_resize_height,
-                            function (Constraint $constraint) {
-                                $constraint->aspectRatio();
-                                if (isset($this->options->upsize) && !$this->options->upsize) {
-                                    $constraint->upsize();
+                        $image = InterventionImage::make($file)
+                            ->orientate()
+                            ->resize(
+                                $thumb_resize_width,
+                                $thumb_resize_height,
+                                function (Constraint $constraint) {
+                                    $constraint->aspectRatio();
+                                    if (isset($this->options->upsize) && !$this->options->upsize) {
+                                        $constraint->upsize();
+                                    }
                                 }
-                            }
-                        )->encode($file->getClientOriginalExtension(), $resize_quality);
+                            )->encode($fileExtension, $resize_quality);
                     } elseif (isset($thumbnails->crop->width) && isset($thumbnails->crop->height)) {
                         $crop_width = $thumbnails->crop->width;
                         $crop_height = $thumbnails->crop->height;
                         $image = InterventionImage::make($file)
+                            ->orientate()
                             ->fit($crop_width, $crop_height)
-                            ->encode($file->getClientOriginalExtension(), $resize_quality);
+                            ->encode($fileExtension, $resize_quality);
                     }
 
                     Storage::disk(config('voyager.storage.disk'))->put(
-                        $path.$filename.'-'.$thumbnails->name.'.'.$file->getClientOriginalExtension(),
-                        (string) $image,
+                        $path . $filename . '-' . $thumbnails->name . '.' . $fileExtension,
+                        (string)$image,
                         'public'
                     );
                 }
             }
-
-            return $fullPath;
         }
+
+        return $fullPath;
     }
 
     /**
